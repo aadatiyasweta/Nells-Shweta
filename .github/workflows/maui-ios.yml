@@ -84,13 +84,20 @@ jobs:
           p12-file-base64: ${{ secrets.p12-cert }}
           p12-password: ${{ secrets.p12-cert-password }}
 
-      - name: Version the app
-        uses: managedcode/MAUIAppVersion@v1
-        with:
-          csproj: ${{ inputs.project-file }}
-          version: ${{ github.run_number }}
-          displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
-          printFile: true
+      - name: Read version from csproj
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content "${{ inputs.project-file }}"
+          $display = $csproj.Project.PropertyGroup.ApplicationDisplayVersion
+          $build = $csproj.Project.PropertyGroup.ApplicationVersion
+          echo "display=$display" >> $env:GITHUB_OUTPUT
+          echo "build=$build" >> $env:GITHUB_OUTPUT
+
+      - name: Version info
+        run: |
+          echo "Display Version: ${{ steps.version.outputs.display }}"
+          echo "Build Version:   ${{ steps.version.outputs.build }}"
 
       - name: Download Provisioning Profiles
         uses: Apple-Actions/download-provisioning-profiles@v1
@@ -100,7 +107,7 @@ jobs:
           api-key-id: ${{ secrets.appstore-keyid }}
           api-private-key: ${{ secrets.appstore-private-key }}
 
-      - name: Publish the iOS app (signed)
+      - name: Generate the iOS app (signed)
         run: |
           dotnet publish "${{ inputs.project-file }}" \
             -c "${{ inputs.build-config }}" \
@@ -109,4 +116,6 @@ jobs:
             -p:EnableAssemblyILStripping=false \
             -p:RuntimeIdentifier=ios-arm64 \
             -p:BuildIpa=true \
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
+            -p:ApplicationVersion=${{ steps.version.outputs.build }} \
             --no-restore
