@@ -85,8 +85,14 @@ jobs:
           p12-file-base64: ${{ secrets.p12-cert }}
           p12-password: ${{ secrets.p12-cert-password }}
 
-      - run: |
-          echo "${{ secrets.appstore-private-key }}" | head -5
+      - name: Check if App Store private key secret is set
+        run: |
+          if [ -z "${{ secrets.appstore-private-key }}" ]; then
+            echo "❌ secrets.appstore-private-key is EMPTY"
+            exit 1
+          else
+            echo "✅ secrets.appstore-private-key is SET"
+          fi
           
       - name: Download Provisioning Profiles
         id: provisioning
