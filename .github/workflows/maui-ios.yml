@@ -80,23 +80,6 @@ jobs:
           P12_PASSWORD: ${{ secrets.p12-cert-password }}
           provisioning-profile: ${{ secrets.provisioning-profile }}
           keychain-password: ${{ secrets.keychain-password }}
-        run: |
-          # import certificate and provisioning profile from secrets
-          echo -n "$p12-cert" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$provisioning-profile" | base64 --decode -o $PP_PATH
-
-          # create temporary keychain
-          security create-keychain -p "$keychain-password" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$keychain-password" $KEYCHAIN_PATH
-
-          # import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$p12-cert-password" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-          # apply provisioning profile
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       # # Optional: clear stale temp keychain name
       # - name: Cleanup stale temp keychain
