@@ -110,30 +110,29 @@ jobs:
           echo "===> Listing available code signing identities"
           security find-identity -v -p codesigning || true
       
-          # Collect identities (CN in quotes)
-          mapfile -t IDENTITIES < <(security find-identity -v -p codesigning | sed -n 's/.*"\(.*\)"/\1/p' || true)
-          if ((${#IDENTITIES[@]} == 0)); then
+          # Collect identity common names (CNs) line by line (Bash 3.2 compatible)
+          IDENTITIES_TEXT="$(security find-identity -v -p codesigning | sed -n 's/.*"\(.*\)"/\1/p' || true)"
+          if [[ -z "$IDENTITIES_TEXT" ]]; then
             echo "::error::No code signing identities found in keychain."
             exit 1
           fi
       
-          # Prefer Apple Distribution; else first available
+          # Prefer Apple Distribution; else first identity present
           IDENTITY=""
-          for cn in "${IDENTITIES[@]}"; do
-            if [[ "$cn" == Apple\ Distribution* ]]; then
-              IDENTITY="$cn"
+          while IFS= read -r CN; do
+            if [[ -z "$IDENTITY" ]]; then
+              IDENTITY="$CN"  # provisional first
+            fi
+            if [[ "$CN" == Apple\ Distribution* ]]; then
+              IDENTITY="$CN"
               break
             fi
-          done
-          if [[ -z "$IDENTITY" ]]; then
-            IDENTITY="${IDENTITIES[0]}"
-            echo "::warning::No 'Apple Distribution' CN found; falling back to: $IDENTITY"
-          else
-            echo "Selected identity: $IDENTITY"
-          fi
+          done <<< "$IDENTITIES_TEXT"
       
-          # Extract TEAM ID from CN: "Apple Distribution: Name (TEAMID)"
-          TEAM_ID="$(sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p' <<<"$IDENTITY" || true)"
+          echo "Selected identity: $IDENTITY"
+      
+          # Extract TEAM ID from CN if present: ... (TEAMID)
+          TEAM_ID="$(echo "$IDENTITY" | sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p' || true)"
           if [[ -z "$TEAM_ID" ]]; then
             echo "::warning::Could not parse Team ID from identity CN."
           else
@@ -150,14 +149,18 @@ jobs:
             exit 1
           fi
       
-          APP_BUNDLE_ID="${{ inputs.package-name }}"
-          APP_IDENTIFIER_EXPECTED="${TEAM_ID:+$TEAM_ID.}$APP_BUNDLE_ID"
-          echo "Expected application-identifier: ${APP_IDENTIFIER_EXPECTED}"
+          APP_BUNDLE_ID="com.nellspay.money"   # <-- keep or use ${{ inputs.package-name }}
+          if [[ -n "$TEAM_ID" ]]; then
+            APP_IDENTIFIER_EXPECTED="$TEAM_ID.$APP_BUNDLE_ID"
+          else
+            # If TEAM_ID isn’t parseable, match just by bundle id suffix
+            APP_IDENTIFIER_EXPECTED=".$APP_BUNDLE_ID"
+          fi
+          echo "Expected application-identifier contains: ${APP_IDENTIFIER_EXPECTED}"
       
           PROFILE_UUID=""
           MATCHED_FILE=""
       
-          # Try to find a profile whose Entitlements:application-identifier matches TEAMID.bundleId
           for f in "${files[@]}"; do
             echo "Inspecting profile: $f"
             plist="$(mktemp)"
@@ -173,18 +176,22 @@ jobs:
             echo "  application-identifier: ${appid:-<none>}"
             echo "  UUID: ${uuid:-<none>}"
       
-            if [[ -n "$appid" && -n "$uuid" && "$appid" == "$APP_IDENTIFIER_EXPECTED" ]]; then
-              PROFILE_UUID="$uuid"
-              MATCHED_FILE="$f"
-              rm -f "$plist"
-              break
+            # Match exact when TEAM_ID is known; otherwise, suffix match
+            if [[ -n "$appid" && -n "$uuid" ]]; then
+              if [[ -n "$TEAM_ID" && "$appid" == "$APP_IDENTIFIER_EXPECTED" ]] || \
+                 [[ -z "$TEAM_ID" && "$appid" == *".$APP_BUNDLE_ID" ]]; then
+                PROFILE_UUID="$uuid"
+                MATCHED_FILE="$f"
+                rm -f "$plist"
+                break
+              fi
             fi
             rm -f "$plist"
           done
       
-          # Fallback: take the first profile’s UUID if no exact match
+          # Fallback to first profile’s UUID if no match
           if [[ -z "$PROFILE_UUID" ]]; then
-            echo "::warning::No exact profile match for ${APP_IDENTIFIER_EXPECTED}. Falling back to first profile."
+            echo "::warning::No exact profile match. Falling back to first profile."
             plist="$(mktemp)"
             security cms -D -i "${files[0]}" > "$plist"
             PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist" 2>/dev/null || true)"
