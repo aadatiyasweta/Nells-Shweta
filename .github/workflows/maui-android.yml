@@ -85,18 +85,7 @@ jobs:
 
       - name: Generate MAUI Android AAB
         run: |
-          dotnet publish "${{ inputs.project-file }}" ^
-            -c "${{ inputs.build-config }}" ^
-            -f "${{ inputs.dotnet-version-target }}-android" ^
-            -p:AndroidPackageFormats=aab ^
-            -p:AndroidKeyStore=true ^
-            -p:AndroidSigningKeyStore="${{ steps.decode_keystore.outputs.filePath }}" ^
-            -p:AndroidSigningKeyAlias="${{ secrets.keystore-alias }}" ^
-            -p:AndroidSigningKeyPass="${{ secrets.keystore-password }}" ^
-            -p:AndroidSigningStorePass="${{ secrets.keystore-password }}" ^
-            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} ^
-            -p:ApplicationVersion=${{ steps.version.outputs.build }} ^
-            --no-restore
+           run: dotnet publish ${{inputs.project-file}} -c ${{ inputs.build-config }} -f ${{ inputs.dotnet-version-target }}-android /p:AndroidPackageFormats=aab /p:AndroidKeyStore=true /p:AndroidSigningKeyStore=${{steps.decode_keystore.outputs.filePath}} /p:AndroidSigningKeyAlias=${{secrets.keystore-alias}} /p:AndroidSigningKeyPass="${{ secrets.keystore-password }}" /p:AndroidSigningStorePass="${{ secrets.keystore-password }}" /p:ApplicationDisplayVersion=${{steps.version.outputs.display}} /p:ApplicationVersion=${{steps.version.outputs.build}}  --no-restore
 
       # Upload AAB artifact
       - name: Upload AAB Artifact
