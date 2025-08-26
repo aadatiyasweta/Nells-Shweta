@@ -106,7 +106,7 @@ jobs:
           bundle-id: ${{ inputs.package-name }}
           issuer-id: ${{ secrets.appstore-issuer }}
           api-key-id: ${{ secrets.appstore-keyid }}
-          api-private-key: ${{ env.APPSTORE_PRIVATE_KEY }}
+          api-private-key: ${{ env.API_PRIVATE_KEY }}
 
       - name: Publish the iOS app (signed)
         run: |
