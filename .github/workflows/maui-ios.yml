@@ -107,6 +107,116 @@ jobs:
           api-key-id: ${{ secrets.appstore-keyid }}
           api-private-key: ${{ secrets.appstore-private-key }}
 
+      - name: Resolve signing values
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+      
+          echo "===> Listing available code signing identities"
+          security find-identity -v -p codesigning || true
+      
+          # Collect identity common names (CNs) line by line (Bash 3.2 compatible)
+          IDENTITIES_TEXT="$(security find-identity -v -p codesigning | sed -n 's/.*"\(.*\)"/\1/p' || true)"
+          if [[ -z "$IDENTITIES_TEXT" ]]; then
+            echo "::error::No code signing identities found in keychain."
+            exit 1
+          fi
+      
+          # Prefer Apple Distribution; else first identity present
+          IDENTITY=""
+          while IFS= read -r CN; do
+            if [[ -z "$IDENTITY" ]]; then
+              IDENTITY="$CN"  # provisional first
+            fi
+            if [[ "$CN" == Apple\ Distribution* ]]; then
+              IDENTITY="$CN"
+              break
+            fi
+          done <<< "$IDENTITIES_TEXT"
+      
+          echo "Selected identity: $IDENTITY"
+      
+          # Extract TEAM ID from CN if present: ... (TEAMID)
+          TEAM_ID="$(echo "$IDENTITY" | sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p' || true)"
+          if [[ -z "$TEAM_ID" ]]; then
+            echo "::warning::Could not parse Team ID from identity CN."
+          else
+            echo "Team ID: $TEAM_ID"
+          fi
+      
+          PROFDIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "===> Looking for provisioning profiles in: $PROFDIR"
+          ls -al "$PROFDIR" || true
+      
+          files=( "$PROFDIR"/*.mobileprovision )
+          if ((${#files[@]} == 0)); then
+            echo "::error::No provisioning profiles found. Ensure Apple-Actions/download-provisioning-profiles ran successfully."
+            exit 1
+          fi
+      
+          APP_BUNDLE_ID="com.nellspay.money"   # <-- keep or use ${{ inputs.package-name }}
+          if [[ -n "$TEAM_ID" ]]; then
+            APP_IDENTIFIER_EXPECTED="$TEAM_ID.$APP_BUNDLE_ID"
+          else
+            # If TEAM_ID isn’t parseable, match just by bundle id suffix
+            APP_IDENTIFIER_EXPECTED=".$APP_BUNDLE_ID"
+          fi
+          echo "Expected application-identifier contains: ${APP_IDENTIFIER_EXPECTED}"
+      
+          PROFILE_UUID=""
+          MATCHED_FILE=""
+      
+          for f in "${files[@]}"; do
+            echo "Inspecting profile: $f"
+            plist="$(mktemp)"
+            if ! security cms -D -i "$f" > "$plist"; then
+              echo "::warning::Failed to decode $f"
+              rm -f "$plist"
+              continue
+            fi
+      
+            appid="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$plist" 2>/dev/null || true)"
+            uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist" 2>/dev/null || true)"
+      
+            echo "  application-identifier: ${appid:-<none>}"
+            echo "  UUID: ${uuid:-<none>}"
+      
+            # Match exact when TEAM_ID is known; otherwise, suffix match
+            if [[ -n "$appid" && -n "$uuid" ]]; then
+              if [[ -n "$TEAM_ID" && "$appid" == "$APP_IDENTIFIER_EXPECTED" ]] || \
+                 [[ -z "$TEAM_ID" && "$appid" == *".$APP_BUNDLE_ID" ]]; then
+                PROFILE_UUID="$uuid"
+                MATCHED_FILE="$f"
+                rm -f "$plist"
+                break
+              fi
+            fi
+            rm -f "$plist"
+          done
+      
+          # Fallback to first profile’s UUID if no match
+          if [[ -z "$PROFILE_UUID" ]]; then
+            echo "::warning::No exact profile match. Falling back to first profile."
+            plist="$(mktemp)"
+            security cms -D -i "${files[0]}" > "$plist"
+            PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist" 2>/dev/null || true)"
+            MATCHED_FILE="${files[0]}"
+            rm -f "$plist"
+          fi
+      
+          if [[ -z "$PROFILE_UUID" ]]; then
+            echo "::error::Failed to extract provisioning profile UUID."
+            exit 1
+          fi
+      
+          echo "Selected provisioning profile: $MATCHED_FILE"
+          echo "PROFILE_UUID=$PROFILE_UUID"
+          echo "IDENTITY=$IDENTITY"
+      
+          echo "IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          
       - name: Generate the iOS app (signed)
         run: |
           dotnet publish "${{ inputs.project-file }}" \
@@ -114,10 +224,10 @@ jobs:
             -f "${{ inputs.dotnet-version-target }}-ios" \
             -p:ArchiveOnBuild=true \
             -p:EnableAssemblyILStripping=false \
+            -p:CodesignKey="${IDENTITY}" \
+            -p:CodesignProvision="${PROFILE_UUID}" \
             -p:RuntimeIdentifier=ios-arm64 \
             -p:BuildIpa=true \
-            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
-            -p:ApplicationVersion=${{ steps.version.outputs.build }} \
             --no-restore
 
       - name: Upload app to TestFlight
