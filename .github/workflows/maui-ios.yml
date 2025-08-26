@@ -100,13 +100,34 @@ jobs:
           issuer-id: ${{ secrets.appstore-issuer }}
           api-key-id: ${{ secrets.appstore-keyid }}
           api-private-key: ${{ secrets.appstore-private-key }}
+
+      - name: Resolve signing values
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pick the first Apple Distribution identity that import-codesign-certs installed
+          IDENTITY="$(security find-identity -v -p codesigning | grep 'Apple Distribution' | head -1 | sed -E 's/.*"(.+)"/\1/')"
+          echo "IDENTITY=$IDENTITY"
+          echo "IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+          # Grab any downloaded .mobileprovision (or filter by bundle id if you want)
+          PROFILE_PATH="$(ls "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision | head -1)"
+          echo "PROFILE_PATH=$PROFILE_PATH"
+
+          # Extract its UUID (this is what MSBuild wants)
+          PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")"
+          echo "PROFILE_UUID=$PROFILE_UUID"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
           
       - name: Publish the iOS app (signed)
         run: |
           dotnet publish "${{ inputs.project-file }}" \
             -c "${{ inputs.build-config }}" \
-            "-f:${{ inputs.dotnet-version-target }}-ios" \
+            -f "${{ inputs.dotnet-version-target }}-ios" \
             -p:ArchiveOnBuild=true \
             -p:EnableAssemblyILStripping=false \
-            -p:CodesignKey="/Users/runner/Library/MobileDevice/Provisioning Profiles/3f5f02c8-23d0-4590-903d-9a13d1b1a12a.mobileprovision" \
+            -p:CodesignKey="${IDENTITY}" \
+            -p:CodesignProvision="${PROFILE_UUID}" \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:BuildIpa=true \
             --no-restore
