@@ -84,23 +84,6 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.p12-cert }}
           p12-password: ${{ secrets.p12-cert-password }}
-
-      - name: Check if App Store private key secret is set
-        run: |
-          if [ -z "${{ secrets.appstore-private-key }}" ]; then
-            echo "❌ secrets.appstore-private-key is EMPTY"
-            exit 1
-          else
-            echo "✅ secrets.appstore-private-key is SET"
-          fi
-          
-      - name: Download Provisioning Profiles
-        uses: Apple-Actions/download-provisioning-profiles@v1
-        with: 
-            bundle-id: ${{ inputs.package-name }}
-            issuer-id: ${{ secrets.appstore-issuer }}
-            api-key-id: ${{ secrets.appstore-keyid }}
-            api-private-key: ${{ secrets.appstore-private-key }}
             
       - name: Version the app
         uses: managedcode/MAUIAppVersion@v1
@@ -109,6 +92,14 @@ jobs:
           version: ${{ github.run_number }}
           displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
           printFile: true
+          
+      - name: Download Provisioning Profiles
+        uses: Apple-Actions/download-provisioning-profiles@v1
+        with: 
+            bundle-id: ${{ inputs.package-name }}
+            issuer-id: ${{ secrets.appstore-issuer }}
+            api-key-id: ${{ secrets.appstore-keyid }}
+            api-private-key: ${{ secrets.appstore-private-key }}
 
       # - name: Publish the iOS app (signed)
       #   run: |
