@@ -93,20 +93,20 @@ jobs:
           displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
           printFile: true
           
-      - name: Download Provisioning Profiles
-        uses: Apple-Actions/download-provisioning-profiles@v1
-        with: 
-            bundle-id: ${{ inputs.package-name }}
-            issuer-id: ${{ secrets.appstore-issuer }}
-            api-key-id: ${{ secrets.appstore-keyid }}
-            api-private-key: ${{ secrets.appstore-private-key }}
+      # - name: Download Provisioning Profiles
+      #   uses: Apple-Actions/download-provisioning-profiles@v1
+      #   with: 
+      #       bundle-id: ${{ inputs.package-name }}
+      #       issuer-id: ${{ secrets.appstore-issuer }}
+      #       api-key-id: ${{ secrets.appstore-keyid }}
+      #       api-private-key: ${{ secrets.appstore-private-key }}
 
-      # - name: Publish the iOS app (signed)
-      #   run: |
-      #     dotnet publish "${{ inputs.project-file }}" \
-      #       -c "${{ inputs.build-config }}" \
-      #       "-f:${{ inputs.dotnet-version-target }}-ios" \
-      #       -p:ArchiveOnBuild=true \
-      #       -p:EnableAssemblyILStripping=false \
-      #       -p:CodesignKey="Apple Distribution: NellsPay Ltd (DK7JA7VZ2D)" \
-      #       --no-restore
+      - name: Publish the iOS app (signed)
+        run: |
+          dotnet publish "${{ inputs.project-file }}" \
+            -c "${{ inputs.build-config }}" \
+            "-f:${{ inputs.dotnet-version-target }}-ios" \
+            -p:ArchiveOnBuild=true \
+            -p:EnableAssemblyILStripping=false \
+            -p:CodesignKey="Apple Distribution: NellsPay Ltd (DK7JA7VZ2D)" \
+            --no-restore
