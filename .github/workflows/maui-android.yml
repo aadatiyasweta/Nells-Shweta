@@ -69,19 +69,40 @@ jobs:
             fileName: 'ourkeystore.jks'
             encodedString: ${{ secrets.keystore }}
 
-      - name: Version the app
-        uses: managedcode/MAUIAppVersion@v1
-        with: 
-          csproj: ${{ inputs.project-file }}
-          version: ${{ github.run_number }}
-          displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
+      - name: Read version from csproj
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content "${{ inputs.project-file }}"
+          $display = ($csproj.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
+          $build   = ($csproj.Project.PropertyGroup | Where-Object { $_.ApplicationVersion }       | Select-Object -First 1).ApplicationVersion
+          if (-not $display) { Write-Error "ApplicationDisplayVersion not found in csproj." }
+          if (-not $build)   { Write-Error "ApplicationVersion not found in csproj." }
+          "display=$display" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "build=$build"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Display Version: $display"
+          Write-Host "Build Version:   $build"
 
       - name: Generate MAUI Android AAB
-        run: dotnet publish ${{inputs.project-file}} -c ${{ inputs.build-config }} -f ${{ inputs.dotnet-version-target }}-android /p:AndroidPackageFormats=aab /p:AndroidKeyStore=true /p:AndroidSigningKeyStore=${{steps.decode_keystore.outputs.filePath}} /p:AndroidSigningKeyAlias=${{secrets.keystore-alias}} /p:AndroidSigningKeyPass="${{ secrets.keystore-password }}" /p:AndroidSigningStorePass="${{ secrets.keystore-password }}" --no-restore
+        run: |
+          dotnet publish "${{ inputs.project-file }}" ^
+            -c "${{ inputs.build-config }}" ^
+            -f "${{ inputs.dotnet-version-target }}-android" ^
+            -p:AndroidPackageFormats=aab ^
+            -p:AndroidKeyStore=true ^
+            -p:AndroidSigningKeyStore="${{ steps.decode_keystore.outputs.filePath }}" ^
+            -p:AndroidSigningKeyAlias="${{ secrets.keystore-alias }}" ^
+            -p:AndroidSigningKeyPass="${{ secrets.keystore-password }}" ^
+            -p:AndroidSigningStorePass="${{ secrets.keystore-password }}" ^
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} ^
+            -p:ApplicationVersion=${{ steps.version.outputs.build }} ^
+            --no-restore
 
-      # # Upload artifact for testing or distribution
-      # - name: Upload APK/AAB Artifact
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: android-app
-      #     path: ./publish/*.apk  # change to *.aab if using App Bundle
+      # Upload AAB artifact
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-aab
+          path: |
+            **\bin\${{ inputs.build-config }}\${{ inputs.dotnet-version-target }}-android\publish\*.aab
+            **\bin\${{ inputs.build-config }}\${{ inputs.dotnet-version-target }}-android\*.aab
