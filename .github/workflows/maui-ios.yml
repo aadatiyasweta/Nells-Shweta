@@ -92,6 +92,10 @@ jobs:
           version: ${{ github.run_number }}
           displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
           printFile: true
+
+      - name: Decode and Save App Store Connect API Key
+        run: |
+          echo "${{ secrets.appstore-private-key }}" | base64 --decode > /tmp/AuthKey.p8
           
       - name: Download Provisioning Profiles
         uses: Apple-Actions/download-provisioning-profiles@v1
@@ -99,7 +103,7 @@ jobs:
             bundle-id: ${{ inputs.package-name }}
             issuer-id: ${{ secrets.appstore-issuer }}
             api-key-id: ${{ secrets.appstore-keyid }}
-            api-private-key: ${{ secrets.appstore-private-key }}
+            api-private-key-path: /tmp/AuthKey.p8
 
       - name: Publish the iOS app (signed)
         run: |
