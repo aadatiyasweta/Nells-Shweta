@@ -95,13 +95,13 @@ jobs:
           fi
           
       - name: Download Provisioning Profiles
-        id: provisioning
         uses: Apple-Actions/download-provisioning-profiles@v1
         with: 
             bundle-id: ${{ inputs.package-name }}
             issuer-id: ${{ secrets.appstore-issuer }}
             api-key-id: ${{ secrets.appstore-keyid }}
             api-private-key: ${{ secrets.appstore-private-key }}
+            
       - name: Version the app
         uses: managedcode/MAUIAppVersion@v1
         with:
