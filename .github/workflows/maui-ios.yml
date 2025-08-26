@@ -108,5 +108,5 @@ jobs:
             "-f:${{ inputs.dotnet-version-target }}-ios" \
             -p:ArchiveOnBuild=true \
             -p:EnableAssemblyILStripping=false \
-            -p:CodesignKey="Apple Distribution: NellsPay Ltd (DK7JA7VZ2D)" \
+            -p:CodesignKey="/Users/runner/Library/MobileDevice/Provisioning Profiles/3f5f02c8-23d0-4590-903d-9a13d1b1a12a.mobileprovision" \
             --no-restore
