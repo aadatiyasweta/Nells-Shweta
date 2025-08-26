@@ -48,7 +48,7 @@ jobs:
     environment: dev
 
     steps:
-      # Checkout code
+      # Checkout codes
       - uses: maxim-lobanov/setup-xcode@v1
         name: Set XCode version
         with:
