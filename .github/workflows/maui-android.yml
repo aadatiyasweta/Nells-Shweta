@@ -100,9 +100,11 @@ jobs:
 
       # Upload AAB artifact
       - name: Upload AAB Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: android-aab
+          name: android-aab-${{ steps.version.outputs.display }}(${{ steps.version.outputs.build }})
           path: |
             **\bin\${{ inputs.build-config }}\${{ inputs.dotnet-version-target }}-android\publish\*.aab
             **\bin\${{ inputs.build-config }}\${{ inputs.dotnet-version-target }}-android\*.aab
+          if-no-files-found: error
+          retention-days: 7
