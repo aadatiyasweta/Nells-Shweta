@@ -92,13 +92,6 @@ jobs:
           version: ${{ github.run_number }}
           displayVersion: ${{ inputs.build-version }}.${{ github.run_number }}
           printFile: true
-
-      - name: Fix private key formatting
-        run: |
-          echo "${{ secrets.appstore-private-key }}" | awk '{gsub(/\\n/,"\n")}1' > fixed_key.p8
-          echo "API_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
-          cat fixed_key.p8 >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
       
       - name: Download Provisioning Profiles
         uses: Apple-Actions/download-provisioning-profiles@v1
@@ -106,7 +99,7 @@ jobs:
           bundle-id: ${{ inputs.package-name }}
           issuer-id: ${{ secrets.appstore-issuer }}
           api-key-id: ${{ secrets.appstore-keyid }}
-          api-private-key: ${{ env.API_PRIVATE_KEY }}
+          api-private-key: "MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg+9imAg3X88o4DoLEX1v9vAshVLAChGDTtqqqXAz5HcagCgYIKoZIzj0DAQehRANCAAT8iYhF7xnuPPAub9kclUfr4H2wVu+fn7Jz1mW/FjuGs5ZP8isdxtsQ4hO0li3TNLie3LlSeUbFBZZZkMrPBo03"
 
       - name: Publish the iOS app (signed)
         run: |
