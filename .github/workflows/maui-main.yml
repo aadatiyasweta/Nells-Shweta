@@ -37,8 +37,6 @@ jobs:
       project-file: ${{ needs.vars.outputs.csprojToBuildAndroid }}
       project-folder: ${{ needs.vars.outputs.projectFolder }}
       build-config: 'Release'
-      build-version: ${{ needs.vars.outputs.buildVersion }}
-      package-name: ${{ needs.vars.outputs.packageName }} 
     secrets:
       keystore: ${{ secrets.PLAY_KEYSTORE }}
       keystore-alias: ${{ secrets.PLAY_KEYSTORE_ALIAS }}
