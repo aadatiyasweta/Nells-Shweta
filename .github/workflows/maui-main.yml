@@ -36,6 +36,7 @@ jobs:
       dotnet-version-target: ${{ needs.vars.outputs.dotnetVersionTargets }}
       project-file: ${{ needs.vars.outputs.csprojToBuildAndroid }}
       project-folder: ${{ needs.vars.outputs.projectFolder }}
+      package-name: ${{ needs.vars.outputs.packageName }} 
       build-config: 'Release'
     secrets:
       keystore: ${{ secrets.PLAY_KEYSTORE }}
