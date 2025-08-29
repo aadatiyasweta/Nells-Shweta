@@ -18,6 +18,9 @@ on:
       build-config:
         required: true
         type: string
+      package-name:
+        required: true
+        type: string
     secrets:
       keystore:
         required: true
