@@ -18,9 +18,6 @@ on:
       build-config:
         required: true
         type: string
-      build-version:
-        required: true
-        type: string
     secrets:
       keystore:
         required: true
@@ -110,3 +107,13 @@ jobs:
             **\bin\${{ inputs.build-config }}\${{ inputs.dotnet-version-target }}-android\*.aab
           if-no-files-found: error
           retention-days: 7
+          
+      # Upload AAB to Google Play Console
+      - uses: r0adkll/upload-google-play@v1.0.17
+        name: Upload Android AAB to Play Console
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.playstore-service-account }}
+          packageName: ${{ inputs.package-name }}
+          releaseFiles: ${{ github.workspace }}/${{ inputs.project-folder }}/bin/${{ inputs.build-config }}/${{ inputs.dotnet-version-target }}-android/publish/*.aab
+          track: internal
+          status: completed
